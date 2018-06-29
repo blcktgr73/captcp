@@ -1,6 +1,8 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Email: Hagen Paul Pfeifer <hagen@jauu.net>
+# Email for python 3 version : Seung-Bum Lee <blcktgr73@gmail.com>
+#                              Dowon Hyun <realsnatcher@gmail.com>
 # URL: http://research.protocollabs.com/captcp/
 
 # Captcp is free software: you can redistribute it and/or modify
@@ -17,7 +19,7 @@
 # along with Captcp. If not, see <http://www.gnu.org/licenses/>.
 
 
-from __future__ import print_function
+
 
 import sys
 import os
@@ -222,13 +224,13 @@ class SequenceContainer:
             raise SequenceContainerException("internal error")
 
         reverse_enumerate = lambda l: \
-                itertools.izip(xrange(len(l)-1, -1, -1), reversed(l))
+                zip(range(len(l)-1, -1, -1), reversed(l))
         it = reverse_enumerate(self.sequnce_list)
 
         # ok, the new packet is within the packets
         while True:
             try:
-                (i, old) = it.next()
+                (i, old) = next(it)
                 # match the segment exactply?
                 if (old.left_edge - 1 == new.right_edge and
                         self.sequnce_list[i - 1].right_edge + 1 == new.left_edge):
@@ -434,7 +436,7 @@ class RainbowColor:
                 'end':'\033[0m'
                 }
 
-    def next(self):
+    def __next__(self):
         if self.color_palette_pos >= len(self.color_palette_flat):
             raise StopIteration
 
@@ -460,7 +462,7 @@ class RainbowColor:
 
     def __iter__(self):
         self.color_palette_pos = 0
-        self.color_palette_flat = self.color_palette.values()
+        self.color_palette_flat = list(self.color_palette.values())
         return self
 
 
@@ -487,7 +489,7 @@ class Converter:
 
     def make_mask(n):
         "return a mask of n bits as a long integer"
-        return (1L << n)-1
+        return (1 << n)-1
 
     make_mask = staticmethod(make_mask)
 
@@ -527,7 +529,7 @@ class PcapParser:
         self.pcap_file = False
 
         try:
-            self.pcap_file = open(pcap_file_path)
+            self.pcap_file = open(pcap_file_path, 'rb')
         except IOError:
             self.logger.error("Cannot open pcap file: %s" % (pcap_file_path))
             sys.exit(ExitCodes.EXIT_ERROR)
@@ -980,7 +982,7 @@ class PayloadTimePortMod(Mod):
 
 
     def print_data(self):
-        for timesortedtupel in sorted(self.data.iteritems(), key = lambda (k,v): float(k)):
+        for timesortedtupel in sorted(iter(self.data.items()), key = lambda k_v: float(k_v[0])):
             time = timesortedtupel[0]
 
             for port in range(PayloadTimePortMod.PORT_END + 1):
@@ -2270,18 +2272,19 @@ class TcpConn:
         self.sipnum = ip.src
         self.dipnum = ip.dst
 
-        l = [ord(a) ^ ord(b) for a,b in zip(self.sipnum, self.dipnum)]
+        l = [a ^ b for a,b in list(zip(self.sipnum, self.dipnum))]
+        #l = [ord(a) ^ ord(b) for a, b in list(zip(self.sipnum, self.dipnum))]
 
-        sport = long(self.sport)
-        dport = long(self.dport)
+        sport = int(self.sport)
+        dport = int(self.dport)
         portpair = "%04x%04x" % (min(sport, dport), max(sport, dport))
         self.uid = "%s:%s:%s" % (
                 str(self.ipversion),
                 str(l),
                 portpair)
 
-        self.iuid = ((self.sipnum) + \
-                (self.dipnum) + ((self.sport) + \
+        self.iuid = (str((self.sipnum)) + \
+                str((self.dipnum)) + ((self.sport) + \
                 (self.dport)))
 
 
@@ -2312,18 +2315,18 @@ class SubConnection(TcpConn):
         self.user_data = dict()
 
 
-    def __cmp__(self, other):
+    def __eq__(self, other):
         if other == None:
-            return True
+            return False
 
         if (self.dipnum == other.dipnum and
             self.sipnum == other.sipnum and
             self.dport  == other.dport and
             self.sport  == other.sport and
             self.ipversion == other.ipversion):
-                return False
-        else:
             return True
+        else:
+            return False
 
 
     def __repr__(self):
@@ -2496,7 +2499,7 @@ class ConnectionContainer:
 
 
     def connection_by_uid(self, uid):
-        for i in self.container.keys():
+        for i in list(self.container.keys()):
             if self.container[i].connection_id == uid:
                 return self.container[i]
 
@@ -2519,7 +2522,7 @@ class ConnectionContainer:
 
         c = Connection(packet)
 
-        if not c.uid in self.container.keys():
+        if not c.uid in list(self.container.keys()):
             # this method SHOULD not be called if not
             # sure that the packet is already in the
             # container
@@ -2534,7 +2537,7 @@ class ConnectionContainer:
 
         c = Connection(packet)
 
-        if not c.uid in self.container.keys():
+        if not c.uid in list(self.container.keys()):
             raise InternalException("packet MUST be in preprocesses container")
         else:
             return self.container[c.uid]
@@ -2546,7 +2549,7 @@ class ConnectionContainer:
 
         c = Connection(packet)
 
-        if not c.uid in self.container.keys():
+        if not c.uid in list(self.container.keys()):
             raise InternalException("packet MUST be in preprocesses container")
         else:
             cc = self.container[c.uid]
@@ -2573,7 +2576,7 @@ class ConnectionContainer:
 
         # this is the only place where a connetion
         # is put into this container
-        if not c.uid in self.container.keys():
+        if not c.uid in list(self.container.keys()):
             c.update(ts, packet)
             self.container[c.uid] = c
             c.register_container(self)
@@ -2614,7 +2617,7 @@ class ConnectionAnalyzeMod(Mod):
 
         sys.stdout.write(label % (1, str("Connections")))
 
-        for key in self.cc.container.keys():
+        for key in list(self.cc.container.keys()):
             connection = self.cc.container[key]
 
             sys.stdout.write(label % (abs(hash(connection.iuid)), str(connection)))
@@ -2630,7 +2633,7 @@ class ConnectionAnalyzeMod(Mod):
 
         label = "\"%s\" -> \"%s\" [ label=\" \",color=gray,arrowsize=0.4, penwidth=1.2 ];\n"
 
-        for key in self.cc.container.keys():
+        for key in list(self.cc.container.keys()):
             connection = self.cc.container[key]
             sys.stdout.write(label % (1, (abs(hash(connection.iuid)))))
 
@@ -3942,7 +3945,7 @@ class ShowMod(Mod):
         sackok     = pi.options['sackok']
         sackblocks = pi.options['sackblocks']
 
-        exec "if " + self.opts.match + ": match = True"
+        exec("if " + self.opts.match + ": match = True")
 
         if match:
             return self.color.color_palette['red']
@@ -4700,7 +4703,7 @@ class StatisticMod(Mod):
 
         # first we sort in an separate dict
         d = dict()
-        for key in self.cc.container.keys():
+        for key in list(self.cc.container.keys()):
             connection = self.cc.container[key]
             d[connection.connection_id] = connection
 
@@ -4775,7 +4778,7 @@ class StatisticMod(Mod):
 
 
     def format_machine(self):
-        for key in self.cc.container.keys():
+        for key in list(self.cc.container.keys()):
             connection = self.cc.container[key]
             if connection.sc1:
                 if self.not_limited(connection.sc1):
@@ -4791,7 +4794,7 @@ class StatisticMod(Mod):
     def process_final_data(self):
         # first we sort in an separate dict
         d = dict()
-        for key in self.cc.container.keys():
+        for key in list(self.cc.container.keys()):
             connection = self.cc.container[key]
             d[connection.connection_id] = connection
 
@@ -4922,7 +4925,7 @@ class ConnectionAnimationMod(Mod):
 
     def process_local_side(self, ts, packet, tpi):
         """ we animate the packet send from us to the peer """
-        if not self.rtt_data.has_key("twh-delay"):
+        if "twh-delay" not in self.rtt_data:
             self.logger.error("The chosen flow does not contain SYN packets")
             sys.exit(ExitCodes.EXIT_CMD_LINE)
 
@@ -4935,7 +4938,7 @@ class ConnectionAnimationMod(Mod):
 
     def process_remote_side(self, ts, packet, tpi):
         """ we animate the packet send from remote to us """
-        if not self.rtt_data.has_key("twh-delay"):
+        if "twh-delay" not in self.rtt_data:
             self.logger.error("The chosen flow does not contain SYN packets")
             sys.exit(ExitCodes.EXIT_CMD_LINE)
         td = Utils.ts_tofloat(ts - self.reference_time) * 1000.0 / self.acceleration
@@ -5287,7 +5290,7 @@ class SocketStatisticsMod(Mod):
 
 
     def write_db(self):
-        for key, value in self.db.items():
+        for key, value in list(self.db.items()):
             path = self.create_data_dir(key)
             if path == None:
                 continue
@@ -5507,10 +5510,10 @@ class SocketStatisticsMod(Mod):
         # split into lines, remove tabs and empty 
         lines = ss_output.split('\n')
         lines = [line.strip() for line in lines]
-        lines = filter(None, lines)
+        lines = [_f for _f in lines if _f]
 
         # filter first line, starting with State
-        lines = filter(lambda x:not x.startswith("State"), lines)
+        lines = [x for x in lines if not x.startswith("State")]
 
         no_lines = len(lines)
 
@@ -5746,7 +5749,7 @@ class Captcp:
 
 
     def print_modules(self):
-        for i in Captcp.modes.keys():
+        for i in list(Captcp.modes.keys()):
             sys.stderr.write("   %-25s - %s\n" % (i, Captcp.modes[i][1]))
 
 
@@ -5806,8 +5809,8 @@ class Captcp:
 
     def check_python_version(self):
         major, minor, micro, releaselevel, serial = sys.version_info
-        if major > 2:
-            sys.logger.error("Python version to new! Python 2.x required")
+        if major < 3:
+            sys.logger.error("Python 3.x required")
             return False
         return True
 
